@@ -65,12 +65,7 @@ import com.threerings.getdown.data.SysProps;
 import com.threerings.getdown.net.Downloader;
 import com.threerings.getdown.net.HTTPDownloader;
 import com.threerings.getdown.tools.Patcher;
-import com.threerings.getdown.util.ConfigUtil;
-import com.threerings.getdown.util.ConnectionUtil;
-import com.threerings.getdown.util.LaunchUtil;
-import com.threerings.getdown.util.MetaProgressObserver;
-import com.threerings.getdown.util.ProgressObserver;
-import com.threerings.getdown.util.VersionUtil;
+import com.threerings.getdown.util.*;
 
 import static com.threerings.getdown.Log.log;
 
@@ -446,15 +441,15 @@ public abstract class Getdown extends Thread
                     // not have unpacked all of our resources yet
                     if (Boolean.getBoolean("check_unpacked")) {
                         File ufile = _app.getLocalPath("unpacked.dat");
-                        long version = -1;
-                        long aversion = _app.getVersion();
+                        Version version = null;
+                        Version aversion = _app.getVersion();
                         if (!ufile.exists()) {
                             ufile.createNewFile();
                         } else {
                             version = VersionUtil.readVersion(ufile);
                         }
 
-                        if (version < aversion) {
+                        if (aversion.isNewerThan(version)) {
                             log.info("Performing unpack.",
                                     "version", version, "aversion", aversion);
                             setStep(Step.UNPACK);

@@ -31,16 +31,16 @@ public class VersionUtil
     /**
      * Reads a version number from a file.
      */
-    public static long readVersion (File vfile)
+    public static Version readVersion (File vfile)
     {
         FileInputStream fin = null;
-        long fileVersion = -1;
+        Version fileVersion = null;
         try {
             fin = new FileInputStream(vfile);
             BufferedReader bin = new BufferedReader(new InputStreamReader(fin));
             String vstr = bin.readLine();
             if (!StringUtil.isBlank(vstr)) {
-                fileVersion = Long.parseLong(vstr);
+                fileVersion = Version.fromString(vstr);
             }
         } catch (Exception e) {
             log.info("Unable to read version file: " + e.getMessage());
@@ -54,7 +54,7 @@ public class VersionUtil
     /**
      * Writes a version number to a file.
      */
-    public static void writeVersion (File vfile, long version) throws IOException
+    public static void writeVersion (File vfile, Version version) throws IOException
     {
         PrintStream out = new PrintStream(new FileOutputStream(vfile));
         try {

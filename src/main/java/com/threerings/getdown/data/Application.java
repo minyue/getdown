@@ -50,6 +50,7 @@ import java.util.regex.Pattern;
 
 import javax.swing.JApplet;
 
+import com.threerings.getdown.util.*;
 import org.apache.commons.codec.binary.Base64;
 
 import com.samskivert.io.StreamUtil;
@@ -59,13 +60,6 @@ import com.samskivert.util.RandomUtil;
 import com.samskivert.util.RunAnywhere;
 import com.samskivert.util.StringUtil;
 import com.threerings.getdown.launcher.RotatingBackgrounds;
-import com.threerings.getdown.util.ConfigUtil;
-import com.threerings.getdown.util.ConnectionUtil;
-import com.threerings.getdown.util.FileUtil;
-import com.threerings.getdown.util.LaunchUtil;
-import com.threerings.getdown.util.MetaProgressObserver;
-import com.threerings.getdown.util.ProgressObserver;
-import com.threerings.getdown.util.VersionUtil;
 
 import static com.threerings.getdown.Log.log;
 
@@ -367,7 +361,7 @@ public class Application
      */
     public Resource getPatchResource (String auxgroup)
     {
-        if (_targetVersion <= _version) {
+        if (!_targetVersion.isNewerThan(_version)) {
             log.warning("Requested patch resource for up-to-date or non-versioned application",
                 "cvers", _version, "tvers", _targetVersion);
             return null;
@@ -531,11 +525,11 @@ public class Application
 
         // extract our version information
         String vstr = (String)cdata.get("version");
-        if (vstr != null) _version = parseLong(vstr, "m.invalid_version");
+        if (vstr != null) _version = parseVersion(vstr, "m.invalid_version");
 
         // if we are a versioned deployment, create a versioned appbase
         try {
-            _vappbase = (_version < 0) ? new URL(_appbase) : createVAppBase(_version);
+            _vappbase = (_version == null) ? new URL(_appbase) : createVAppBase(_version);
         } catch (MalformedURLException mue) {
             String err = MessageUtil.tcompose("m.invalid_appbase", _appbase);
             throw (IOException) new IOException(err).initCause(mue);
@@ -1093,7 +1087,7 @@ public class Application
     protected String processArg (String arg)
     {
         arg = arg.replace("%APPDIR%", _appdir.getAbsolutePath());
-        arg = arg.replace("%VERSION%", String.valueOf(_version));
+        arg = arg.replace("%VERSION%", _version.toString());
         return arg;
     }
 
@@ -1131,7 +1125,7 @@ public class Application
 
         // if we have no version, then we are running in unversioned mode so we need to download
         // our digest.txt file on every invocation
-        if (_version == -1) {
+        if (_version == null) {
             // make a note of the old meta-digest, if this changes we need to revalidate all of our
             // resources as one or more of them have also changed
             String olddig = (_digest == null) ? "" : _digest.getMetaDigest();
@@ -1184,10 +1178,10 @@ public class Application
 
         // if we are a versioned application, read in the contents of the version.txt file
         // and/or check the latest config URL for a newer version
-        if (_version != -1) {
+        if (_version != null) {
             File vfile = getLocalPath(VERSION_FILE);
-            long fileVersion = VersionUtil.readVersion(vfile);
-            if (fileVersion != -1) {
+            Version fileVersion = VersionUtil.readVersion(vfile);
+            if (fileVersion != null) {
                 _targetVersion = fileVersion;
             }
 
@@ -1199,8 +1193,11 @@ public class Application
                     BufferedReader bin = new BufferedReader(new InputStreamReader(in));
                     for (String[] pair : ConfigUtil.parsePairs(bin, false)) {
                         if (pair[0].equals("version")) {
-                            _targetVersion = Math.max(Long.parseLong(pair[1]), _targetVersion);
-                            if (fileVersion != -1 && _targetVersion > fileVersion) {
+                            Version temp = Version.fromString(pair[1]);
+                            if (temp.isNewerThan(_targetVersion)) {
+                                _targetVersion = temp;
+                            }
+                            if (fileVersion != null && _targetVersion.isNewerThan(fileVersion)) {
                                 // replace the file with the newest version
                                 out = new PrintStream(new FileOutputStream(vfile));
                                 out.println(_targetVersion);
@@ -1334,7 +1331,7 @@ public class Application
      * Returns the version number for the application.  Should only be called after successful
      * return of verifyMetadata.
      */
-    public long getVersion ()
+    public Version getVersion ()
     {
         return _version;
     }
@@ -1342,10 +1339,10 @@ public class Application
     /**
      * Creates a versioned application base URL for the specified version.
      */
-    protected URL createVAppBase (long version)
+    protected URL createVAppBase (Version version)
         throws MalformedURLException
     {
-        return new URL(_appbase.replace("%VERSION%", "" + version));
+        return new URL(_appbase.replace("%VERSION%", "" + version.toString()));
     }
 
     /**
@@ -1719,13 +1716,27 @@ public class Application
         }
     }
 
+    /**
+     * Parses and returns a version. {@code value} must be non-null.
+     * @throws IOException on malformed value.
+     */
+    protected static Version parseVersion (String value, String errkey) throws IOException
+    {
+        try {
+            return Version.fromString(value);
+        } catch (Exception e) {
+            String err = MessageUtil.tcompose(errkey, value);
+            throw (IOException) new IOException(err).initCause(e);
+        }
+    }
+
     protected File _appdir;
     protected String _appid;
     protected File _config;
     protected Digest _digest;
 
-    protected long _version = -1;
-    protected long _targetVersion = -1;
+    protected Version _version = null;
+    protected Version _targetVersion = null;
     protected String _appbase;
     protected URL _vappbase;
     protected URL _latest;
