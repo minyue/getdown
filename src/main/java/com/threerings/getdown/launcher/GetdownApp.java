@@ -170,6 +170,10 @@ public class GetdownApp
                     }
                 }
                 @Override
+                protected boolean confirmUpdate() {
+                    return true;
+                }
+                @Override
                 protected void exit (int exitCode) {
                     System.exit(exitCode);
                 }

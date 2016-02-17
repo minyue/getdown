@@ -32,6 +32,14 @@ public class Version {
     }
 
     public String toString() {
-        return codes.toString();
+        StringBuilder stringBuilder = new StringBuilder();
+        for (int c : codes) {
+            stringBuilder.append(c);
+            stringBuilder.append('.');
+        }
+        if (stringBuilder.length() > 1) {
+           return stringBuilder.substring(0, stringBuilder.length() - 1);
+        }
+        return null;
     }
 }

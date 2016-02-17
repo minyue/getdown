@@ -402,6 +402,8 @@ public abstract class Getdown extends Thread
             // we'll keep track of all the resources we unpack
             Set<Resource> unpacked = new HashSet<Resource>();
 
+            boolean confirmed = false;
+
             //setStep(Step.START);
             for (int ii = 0; ii < MAX_LOOPS; ii++) {
                 // if we aren't running in a JVM that meets our version requirements, either
@@ -424,10 +426,25 @@ public abstract class Getdown extends Thread
                 setStep(Step.VERIFY_METADATA);
                 setStatus("m.validating", -1, -1L, false);
                 if (_app.verifyMetadata(this)) {
-                    log.info("Application requires update.");
-                    update();
-                    // loop back again and reverify the metadata
-                    continue;
+                    if (!confirmed) {
+                        if (confirmUpdate()) {
+                            confirmed = true;
+                        } else {
+                            disposeContainer();
+                            _app.releaseLock();
+                            return;
+                        }
+                    }
+                    if (confirmed) {
+                        log.info("Application requires update.");
+                        update();
+                        // loop back again and reverify the metadata
+                        continue;
+                    }
+                } else if (!confirmed) {
+                    disposeContainer();
+                    _app.releaseLock();
+                    return;
                 }
 
                 // now verify our resources...
@@ -858,7 +875,7 @@ public abstract class Getdown extends Thread
         }
 
         EventQueue.invokeLater(new Runnable() {
-            public void run () {
+            public void run() {
                 if (_container == null || reinit) {
                     if (_container == null) {
                         _container = createContainer();
@@ -868,7 +885,8 @@ public abstract class Getdown extends Thread
                     _layers = new JLayeredPane();
                     _container.add(_layers, BorderLayout.CENTER);
                     _patchNotes = new JButton(new AbstractAction(_msgs.getString("m.patch_notes")) {
-                        @Override public void actionPerformed (ActionEvent event) {
+                        @Override
+                        public void actionPerformed(ActionEvent event) {
                             showDocument(_ifc.patchNotesUrl);
                         }
                     });
@@ -881,11 +899,12 @@ public abstract class Getdown extends Thread
                         _playAgain.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
                         _playAgain.setFont(StatusPanel.FONT);
                         _playAgain.addActionListener(new ActionListener() {
-                            @Override public void actionPerformed (ActionEvent event) {
+                            @Override
+                            public void actionPerformed(ActionEvent event) {
                                 _playAgain.setVisible(false);
                                 _stepMinPercent = _lastGlobalPercent = 0;
                                 EventQueue.invokeLater(new Runnable() {
-                                    public void run () {
+                                    public void run() {
                                         getdown();
                                     }
                                 });
@@ -958,7 +977,7 @@ public abstract class Getdown extends Thread
         if (_ifc.rotatingBackgrounds != null) {
             if (_ifc.backgroundImage != null) {
                 log.warning("ui.background_image and ui.rotating_background were both specified. " +
-                            "The rotating images are being used.");
+                        "The rotating images are being used.");
             }
             return new RotatingBackgrounds(_ifc.rotatingBackgrounds, _ifc.errorBackground,
                 Getdown.this);
@@ -1098,6 +1117,11 @@ public abstract class Getdown extends Thread
      * Disposes the container in which we have our user interface.
      */
     protected abstract void disposeContainer ();
+
+    /**
+     * Called when there is an update, and returns whether to perform the update.
+     */
+    protected abstract boolean confirmUpdate();
 
     /**
      * If this method returns true we will run the application in the same JVM, otherwise we will

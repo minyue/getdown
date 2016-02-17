@@ -135,6 +135,10 @@ public class GetdownApplet extends JApplet
                     }
                 }
                 @Override
+                protected boolean confirmUpdate() {
+                    return true;
+                }
+                @Override
                 protected void launch () {
                     // if so configured, create a server socket to listen
                     // for a connection from the app
