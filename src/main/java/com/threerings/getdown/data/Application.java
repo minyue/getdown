@@ -1191,6 +1191,8 @@ public class Application
                 try {
                     in = ConnectionUtil.open(_latest).getInputStream();
                     BufferedReader bin = new BufferedReader(new InputStreamReader(in));
+                    boolean versionFound = false;
+                    boolean releaseNoteFound = false;
                     for (String[] pair : ConfigUtil.parsePairs(bin, false)) {
                         if (pair[0].equals("version")) {
                             Version temp = Version.fromString(pair[1]);
@@ -1202,8 +1204,13 @@ public class Application
                                 out = new PrintStream(new FileOutputStream(vfile));
                                 out.println(_targetVersion);
                             }
-                            break;
+                            versionFound = true;
+                        } else if (pair[0].equals("note")) {
+                            _targetReleaseNote = pair[1];
+                            releaseNoteFound = true;
                         }
+                        if (versionFound && releaseNoteFound)
+                            break;
                     }
                 } catch (Exception e) {
                     log.warning("Unable to retrieve version from latest config file.", e);
@@ -1334,6 +1341,15 @@ public class Application
     public Version getVersion ()
     {
         return _version;
+    }
+
+    /**
+     * Returns the release note for the application.  Should only be called after successful
+     * return of verifyMetadata.
+     */
+    public String getReleaseNote ()
+    {
+        return _targetReleaseNote;
     }
 
     /**
@@ -1737,6 +1753,7 @@ public class Application
 
     protected Version _version = null;
     protected Version _targetVersion = null;
+    protected String _targetReleaseNote = "";
     protected String _appbase;
     protected URL _vappbase;
     protected URL _latest;
